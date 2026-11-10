@@ -1,13 +1,15 @@
 import { CameraView, useCameraPermissions, type CameraType, type FlashMode } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { useEvents } from '@/lib/EventsContext';
+import { ensureLibraryPermission } from '@/lib/deviceAlbum';
 import { addPhoto, savePhotosToAlbum } from '@/lib/storage';
 import { colors, radius, spacing } from '@/lib/theme';
+import { isAutoSaveEnabled } from '@/lib/types';
 
 const FLASH_CYCLE: FlashMode[] = ['off', 'auto', 'on'];
 const FLASH_LABEL: Record<FlashMode, string> = { off: '⚡️ No', auto: '⚡️ Auto', on: '⚡️ Sí', screen: '⚡️ Pantalla' };
@@ -26,6 +28,13 @@ export default function CameraScreen() {
   const [lastShotUri, setLastShotUri] = useState<string | null>(null);
   const [shotCount, setShotCount] = useState(0);
   const autoSaveWarned = useRef(false);
+  const autoSave = !!event && isAutoSaveEnabled(event);
+
+  // Con el guardado automático activo, se pide el permiso de galería al abrir la
+  // cámara, y no a mitad de una ráfaga de fotos.
+  useEffect(() => {
+    if (permission?.granted && autoSave) ensureLibraryPermission().catch(() => undefined);
+  }, [permission?.granted, autoSave]);
 
   if (!permission) return <View style={styles.black} />;
 
@@ -56,7 +65,7 @@ export default function CameraScreen() {
       });
       setLastShotUri(photo.uri);
       setShotCount((n) => n + 1);
-      if (event?.autoSaveToAlbum) {
+      if (event && autoSave) {
         // En segundo plano, para poder seguir haciendo fotos sin esperar.
         savePhotosToAlbum(event, [photo]).catch((error) => {
           if (autoSaveWarned.current) return;

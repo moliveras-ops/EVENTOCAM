@@ -74,6 +74,7 @@ export async function createEvent(input: NewEventInput): Promise<EventoCamEvent>
     date: input.date,
     role: 'host',
     createdAt: Date.now(),
+    autoSaveToAlbum: true,
   };
   await writeJson(KEYS.events, [event, ...events]);
   return event;
@@ -100,6 +101,7 @@ export async function joinEvent(params: {
     date: params.date ?? new Date().toISOString().slice(0, 10),
     role,
     createdAt: Date.now(),
+    autoSaveToAlbum: true,
   };
   await writeJson(KEYS.events, [event, ...events]);
   return event;

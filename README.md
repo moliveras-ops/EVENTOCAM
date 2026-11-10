@@ -14,10 +14,10 @@ Hecha con **Expo SDK 58**, **React Native 0.88**, **Expo Router** y TypeScript.
 - **Cámara integrada**: cámara trasera o frontal, flash (no / auto / sí) y un contador de fotos hechas.
 - **Subir fotos de la galería**, hasta 20 de una vez.
 - **Galería del evento** en cuadrícula, con el autor y la hora de cada foto.
-- **Carpeta del evento en la galería del teléfono**: cada evento tiene su álbum
-  (`EventoCam - <nombre del evento>`). Se puede guardar todo con un botón, o activar el
-  guardado automático para que cada foto hecha con la cámara vaya directa a la carpeta.
-  Las fotos ya guardadas llevan una ✓ y no se duplican.
+- **Guardado automático en una carpeta del evento**: cada foto que se hace con la cámara
+  o se sube desde la galería se guarda sola en el álbum `EventoCam - <nombre del evento>`
+  del teléfono. Viene activado en todos los eventos; se puede desactivar por evento.
+  Si alguna no se pudo guardar, un botón guarda las pendientes. Las guardadas llevan una ✓.
 - **Detalle de foto**: guardarla en la carpeta del evento, compartirla o borrarla.
 - **Nombre del usuario**: aparece como autor de sus fotos.
 
@@ -88,7 +88,7 @@ En esta primera versión todo se guarda **en el propio dispositivo**:
 
 - Los datos de eventos y fotos se guardan en `AsyncStorage`.
 - Las imágenes se copian a la carpeta de documentos de la app (`Paths.document/eventocam/<idEvento>/`).
-- Opcionalmente, se copian también a un álbum con el nombre del evento en la galería del teléfono
+- Además, se copian automáticamente a un álbum con el nombre del evento en la galería del teléfono
   (`src/lib/deviceAlbum.ts`). En Android es una carpeta en `Pictures/`; en iOS, un álbum de Fotos.
   Así, aunque se desinstale la app, esas fotos siguen en el teléfono.
 

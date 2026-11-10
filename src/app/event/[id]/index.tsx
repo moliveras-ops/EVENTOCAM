@@ -10,7 +10,7 @@ import { useEvents } from '@/lib/EventsContext';
 import { ensureLibraryPermission, eventAlbumName } from '@/lib/deviceAlbum';
 import { addPhoto, loadPhotos, savePhotosToAlbum } from '@/lib/storage';
 import { colors, formatEventDate, radius, spacing } from '@/lib/theme';
-import type { EventPhoto } from '@/lib/types';
+import { isAutoSaveEnabled, type EventPhoto } from '@/lib/types';
 
 const COLUMNS = 3;
 const GAP = 2;
@@ -75,22 +75,33 @@ export default function EventGalleryScreen() {
     });
     if (result.canceled) return;
     setUploading(true);
+    const added: EventPhoto[] = [];
     try {
       for (const asset of result.assets) {
-        await addPhoto({
+        const photo = await addPhoto({
           eventId: id,
           sourceUri: asset.uri,
           author: profileName,
           width: asset.width,
           height: asset.height,
         });
+        added.push(photo);
       }
-      refresh();
     } catch (error) {
       Alert.alert('No se pudieron subir las fotos', String(error));
-    } finally {
-      setUploading(false);
     }
+    if (added.length > 0 && isAutoSaveEnabled(event!)) {
+      try {
+        await savePhotosToAlbum(event!, added);
+      } catch (error) {
+        Alert.alert(
+          'No se guardaron en la carpeta',
+          `Las fotos están en el evento, pero no en la galería. ${error instanceof Error ? error.message : ''}`,
+        );
+      }
+    }
+    refresh();
+    setUploading(false);
   }
 
   function handleDelete() {
@@ -169,9 +180,9 @@ export default function EventGalleryScreen() {
                 />
               )}
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Guardar automáticamente las fotos que haga</Text>
+                <Text style={styles.switchLabel}>Guardar automáticamente las fotos nuevas en esta carpeta</Text>
                 <Switch
-                  value={!!event.autoSaveToAlbum}
+                  value={isAutoSaveEnabled(event)}
                   onValueChange={handleToggleAutoSave}
                   trackColor={{ true: colors.primary }}
                 />

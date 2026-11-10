@@ -9,8 +9,15 @@ export interface EventoCamEvent {
   date: string;
   role: EventRole;
   createdAt: number;
-  /** Si está activo, cada foto hecha con la cámara se guarda también en el álbum del evento. */
+  /**
+   * Guardado automático de las fotos nuevas en la carpeta del evento de la galería.
+   * Activado por defecto: solo un `false` explícito lo desactiva.
+   */
   autoSaveToAlbum?: boolean;
+}
+
+export function isAutoSaveEnabled(event: Pick<EventoCamEvent, 'autoSaveToAlbum'>): boolean {
+  return event.autoSaveToAlbum !== false;
 }
 
 export interface EventPhoto {

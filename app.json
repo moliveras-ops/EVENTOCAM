@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "EventoCam",
+    "slug": "eventocam",
+    "scheme": "eventocam",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eventocam.app"
+    },
+    "android": {
+      "package": "com.eventocam.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1E1B4B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "EventoCam usa la cámara para tomar fotos del evento y escanear códigos QR.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "EventoCam necesita acceso a tus fotos para subirlas al evento.",
+          "cameraPermission": "EventoCam usa la cámara para tomar fotos del evento.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "EventoCam necesita acceso a tus fotos para guardar las imágenes del evento.",
+          "savePhotosPermission": "EventoCam guarda en tu galería las fotos del evento que elijas.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}

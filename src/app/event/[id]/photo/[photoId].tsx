@@ -1,4 +1,3 @@
-import { Asset, requestPermissionsAsync } from 'expo-media-library';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
@@ -6,7 +5,9 @@ import { ActivityIndicator, Alert, Image, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { deletePhoto, loadPhotos } from '@/lib/storage';
+import { eventAlbumName } from '@/lib/deviceAlbum';
+import { useEvents } from '@/lib/EventsContext';
+import { deletePhoto, loadPhotos, savePhotosToAlbum } from '@/lib/storage';
 import { colors, spacing } from '@/lib/theme';
 import type { EventPhoto } from '@/lib/types';
 
@@ -14,6 +15,8 @@ export default function PhotoDetailScreen() {
   const { id, photoId } = useLocalSearchParams<{ id: string; photoId: string }>();
   const [photo, setPhoto] = useState<EventPhoto | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const { getEvent } = useEvents();
+  const event = getEvent(id);
 
   useEffect(() => {
     loadPhotos(id).then((photos) => setPhoto(photos.find((p) => p.id === photoId) ?? null));
@@ -38,18 +41,15 @@ export default function PhotoDetailScreen() {
   const current = photo;
 
   async function handleSave() {
+    if (!event) return;
     setSaving(true);
     try {
-      // writeOnly: solo pedimos permiso para guardar, no para leer la galería.
-      const permission = await requestPermissionsAsync(true);
-      if (!permission.granted) {
-        Alert.alert('Sin permiso', 'Activa el acceso a Fotos en los ajustes para guardar la imagen.');
-        return;
-      }
-      await Asset.create(current.uri);
-      Alert.alert('Guardada', 'La foto está en tu galería.');
+      const { saved } = await savePhotosToAlbum(event, [current]);
+      if (!saved) throw new Error('Inténtalo de nuevo.');
+      setPhoto({ ...current, savedToAlbum: true });
+      Alert.alert('Guardada', `La foto está en la carpeta "${eventAlbumName(event)}" de tu galería.`);
     } catch (error) {
-      Alert.alert('No se pudo guardar', String(error));
+      Alert.alert('No se pudo guardar', error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }
@@ -92,7 +92,13 @@ export default function PhotoDetailScreen() {
           📷 {current.author} · {takenAt}
         </Text>
         <View style={styles.actions}>
-          <Button title="Guardar" onPress={handleSave} loading={saving} style={styles.action} />
+          <Button
+            title={current.savedToAlbum ? 'Guardada ✓' : 'Guardar'}
+            onPress={handleSave}
+            loading={saving}
+            disabled={current.savedToAlbum || !event}
+            style={styles.action}
+          />
           <Button title="Compartir" variant="secondary" onPress={handleShare} style={styles.action} />
           <Button title="Borrar" variant="danger" onPress={handleDelete} style={styles.action} />
         </View>

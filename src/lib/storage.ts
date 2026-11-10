@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { saveToEventAlbum } from './deviceAlbum';
 import { generateEventCode, generateId } from './ids';
 import type { EventoCamEvent, EventPhoto, EventRole, NewEventInput } from './types';
 
@@ -22,6 +23,23 @@ async function readJson<T>(key: string, fallback: T): Promise<T> {
 async function writeJson(key: string, value: unknown): Promise<void> {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
+
+/**
+ * Ejecuta tareas de una en una. Evita que dos operaciones lean y reescriban
+ * la misma lista a la vez (p. ej. una foto nueva mientras otra se marca como
+ * guardada), lo que haría perder datos.
+ */
+function createQueue() {
+  let tail: Promise<unknown> = Promise.resolve();
+  return function run<T>(task: () => Promise<T>): Promise<T> {
+    const result = tail.then(task);
+    tail = result.catch(() => undefined);
+    return result;
+  };
+}
+
+const withDataLock = createQueue();
+const withAlbumLock = createQueue();
 
 function eventDirectory(eventId: string): Directory {
   return new Directory(Paths.document, 'eventocam', eventId);
@@ -87,18 +105,33 @@ export async function joinEvent(params: {
   return event;
 }
 
-export async function deleteEvent(eventId: string): Promise<void> {
-  const [events, photos] = await Promise.all([loadEvents(), loadAllPhotos()]);
-  await Promise.all([
-    writeJson(
+export async function updateEvent(
+  eventId: string,
+  changes: Partial<Pick<EventoCamEvent, 'name' | 'date' | 'autoSaveToAlbum'>>,
+): Promise<void> {
+  await withDataLock(async () => {
+    const events = await loadEvents();
+    await writeJson(
       KEYS.events,
-      events.filter((e) => e.id !== eventId),
-    ),
-    writeJson(
-      KEYS.photos,
-      photos.filter((p) => p.eventId !== eventId),
-    ),
-  ]);
+      events.map((e) => (e.id === eventId ? { ...e, ...changes } : e)),
+    );
+  });
+}
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  await withDataLock(async () => {
+    const [events, photos] = await Promise.all([loadEvents(), loadAllPhotos()]);
+    await Promise.all([
+      writeJson(
+        KEYS.events,
+        events.filter((e) => e.id !== eventId),
+      ),
+      writeJson(
+        KEYS.photos,
+        photos.filter((p) => p.eventId !== eventId),
+      ),
+    ]);
+  });
   const dir = eventDirectory(eventId);
   if (dir.exists) dir.delete();
 }
@@ -143,19 +176,58 @@ export async function addPhoto(params: {
     width: params.width,
     height: params.height,
   };
-  const photos = await loadAllPhotos();
-  await writeJson(KEYS.photos, [photo, ...photos]);
+  await withDataLock(async () => {
+    const photos = await loadAllPhotos();
+    await writeJson(KEYS.photos, [photo, ...photos]);
+  });
   return photo;
 }
 
+export async function markPhotosSavedToAlbum(photoIds: string[]): Promise<void> {
+  if (photoIds.length === 0) return;
+  const ids = new Set(photoIds);
+  await withDataLock(async () => {
+    const photos = await loadAllPhotos();
+    await writeJson(
+      KEYS.photos,
+      photos.map((p) => (ids.has(p.id) ? { ...p, savedToAlbum: true } : p)),
+    );
+  });
+}
+
 export async function deletePhoto(photoId: string): Promise<void> {
-  const photos = await loadAllPhotos();
-  const photo = photos.find((p) => p.id === photoId);
-  if (!photo) return;
-  const file = new File(photo.uri);
-  if (file.exists) file.delete();
-  await writeJson(
-    KEYS.photos,
-    photos.filter((p) => p.id !== photoId),
-  );
+  await withDataLock(async () => {
+    const photos = await loadAllPhotos();
+    const photo = photos.find((p) => p.id === photoId);
+    if (!photo) return;
+    const file = new File(photo.uri);
+    if (file.exists) file.delete();
+    await writeJson(
+      KEYS.photos,
+      photos.filter((p) => p.id !== photoId),
+    );
+  });
+}
+
+// ---------- Álbum del evento en la galería del teléfono ----------
+
+/**
+ * Guarda en el álbum del evento las fotos indicadas que aún no estén guardadas
+ * y las marca como guardadas. Devuelve cuántas se guardaron y cuántas fallaron.
+ */
+export async function savePhotosToAlbum(
+  event: EventoCamEvent,
+  photos: EventPhoto[],
+): Promise<{ saved: number; failed: number }> {
+  // En cola para que dos guardados seguidos no creen el álbum dos veces.
+  return withAlbumLock(async () => {
+    // Se relee el estado: otra tarea de la cola pudo guardar ya alguna de estas fotos.
+    const ids = new Set(photos.map((p) => p.id));
+    const current = (await loadAllPhotos()).filter((p) => ids.has(p.id));
+    const pending = current.filter((p) => !p.savedToAlbum);
+    const savedUris = new Set(await saveToEventAlbum(event, pending.map((p) => p.uri)));
+    const savedIds = pending.filter((p) => savedUris.has(p.uri)).map((p) => p.id);
+    await markPhotosSavedToAlbum(savedIds);
+    return { saved: savedIds.length, failed: pending.length - savedIds.length };
+  });
 }

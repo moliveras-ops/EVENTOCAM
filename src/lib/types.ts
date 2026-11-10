@@ -9,6 +9,8 @@ export interface EventoCamEvent {
   date: string;
   role: EventRole;
   createdAt: number;
+  /** Si está activo, cada foto hecha con la cámara se guarda también en el álbum del evento. */
+  autoSaveToAlbum?: boolean;
 }
 
 export interface EventPhoto {
@@ -20,6 +22,8 @@ export interface EventPhoto {
   createdAt: number;
   width?: number;
   height?: number;
+  /** true cuando la foto ya está en el álbum del evento de la galería del teléfono. */
+  savedToAlbum?: boolean;
 }
 
 export interface NewEventInput {

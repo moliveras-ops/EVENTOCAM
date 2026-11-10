@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { useEvents } from '@/lib/EventsContext';
-import { addPhoto } from '@/lib/storage';
+import { addPhoto, savePhotosToAlbum } from '@/lib/storage';
 import { colors, radius, spacing } from '@/lib/theme';
 
 const FLASH_CYCLE: FlashMode[] = ['off', 'auto', 'on'];
@@ -25,6 +25,7 @@ export default function CameraScreen() {
   const [busy, setBusy] = useState(false);
   const [lastShotUri, setLastShotUri] = useState<string | null>(null);
   const [shotCount, setShotCount] = useState(0);
+  const autoSaveWarned = useRef(false);
 
   if (!permission) return <View style={styles.black} />;
 
@@ -55,6 +56,17 @@ export default function CameraScreen() {
       });
       setLastShotUri(photo.uri);
       setShotCount((n) => n + 1);
+      if (event?.autoSaveToAlbum) {
+        // En segundo plano, para poder seguir haciendo fotos sin esperar.
+        savePhotosToAlbum(event, [photo]).catch((error) => {
+          if (autoSaveWarned.current) return;
+          autoSaveWarned.current = true;
+          Alert.alert(
+            'No se guardó en la galería',
+            `La foto está en el evento, pero no en la carpeta del teléfono. ${error instanceof Error ? error.message : ''}`,
+          );
+        });
+      }
     } catch (error) {
       Alert.alert('No se pudo guardar la foto', String(error));
     } finally {

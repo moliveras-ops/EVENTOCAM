@@ -10,6 +10,10 @@ interface EventsContextValue {
   setProfileName: (name: string) => Promise<void>;
   createEvent: (input: NewEventInput) => Promise<EventoCamEvent>;
   joinEvent: (params: { code: string; name?: string; date?: string }) => Promise<EventoCamEvent>;
+  updateEvent: (
+    eventId: string,
+    changes: Partial<Pick<EventoCamEvent, 'name' | 'date' | 'autoSaveToAlbum'>>,
+  ) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
   getEvent: (eventId: string) => EventoCamEvent | undefined;
 }
@@ -47,6 +51,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return event;
   }, []);
 
+  const updateEvent = useCallback<EventsContextValue['updateEvent']>(async (eventId, changes) => {
+    await storage.updateEvent(eventId, changes);
+    setEvents(await storage.loadEvents());
+  }, []);
+
   const deleteEvent = useCallback(async (eventId: string) => {
     await storage.deleteEvent(eventId);
     setEvents(await storage.loadEvents());
@@ -55,8 +64,18 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const getEvent = useCallback((eventId: string) => events.find((e) => e.id === eventId), [events]);
 
   const value = useMemo(
-    () => ({ ready, events, profileName, setProfileName, createEvent, joinEvent, deleteEvent, getEvent }),
-    [ready, events, profileName, setProfileName, createEvent, joinEvent, deleteEvent, getEvent],
+    () => ({
+      ready,
+      events,
+      profileName,
+      setProfileName,
+      createEvent,
+      joinEvent,
+      updateEvent,
+      deleteEvent,
+      getEvent,
+    }),
+    [ready, events, profileName, setProfileName, createEvent, joinEvent, updateEvent, deleteEvent, getEvent],
   );
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>;

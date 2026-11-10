@@ -47,7 +47,10 @@
         {
           "photosPermission": "EventoCam necesita acceso a tus fotos para guardar las imágenes del evento.",
           "savePhotosPermission": "EventoCam guarda en tu galería las fotos del evento que elijas.",
-          "isAccessMediaLocationEnabled": false
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": [
+            "photo"
+          ]
         }
       ]
     ]
